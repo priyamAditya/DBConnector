@@ -1,7 +1,7 @@
 {
   "name": "dbconnector",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "MCP server to connect and query multiple databases (PostgreSQL, MySQL, ClickHouse, MongoDB, Redis) from Claude or any MCP client.",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -11,14 +11,18 @@
     "dbconnector": "src/index.js",
     "dbmcp": "src/cli.js"
   },
-  "keywords": [],
+  "keywords": ["mcp", "database", "postgresql", "mysql", "redis", "clickhouse", "mongodb", "claude"],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@clickhouse/client": "^1.18.2",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "better-sqlite3": "^12.8.0",
     "chalk": "^5.6.2",
     "inquirer": "^13.3.2",
+    "ioredis": "^5.10.1",
+    "mongodb": "^7.1.0",
+    "mysql2": "^3.20.0",
     "ora": "^9.3.0",
     "pg": "^8.20.0",
     "zod": "^4.3.6"

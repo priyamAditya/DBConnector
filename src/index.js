@@ -67,6 +67,47 @@ server.tool(
   }
 );
 
+// ── Save credentials without testing ─────────────────────────────────────────
+server.tool(
+  "save_connection",
+  "Save database credentials without testing the connection first. Useful when the database is not reachable right now but you want to store the credentials for later.",
+  {
+    name: z.string().describe("Unique name for this connection (e.g. 'prod', 'staging')"),
+    dbtype: dbtypeEnum,
+    host: z.string().describe("Database host"),
+    port: z.number().optional().describe("Port (auto-detected from db type if omitted)"),
+    database: z.string().describe("Database name (for Redis, use the DB number like '0')"),
+    username: z.string().describe("Database user"),
+    password: z.string().default("").describe("Database password"),
+    ssl: z.boolean().default(false).describe("Use SSL connection"),
+  },
+  async (args) => {
+    const port = args.port ?? DEFAULT_PORTS[args.dbtype];
+    const conn = { ...args, port };
+    try {
+      saveConnection(conn);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Connection "${args.name}" (${DB_LABELS[args.dbtype]}) saved.\nNote: Connection was NOT tested. Use test_connection to verify it works.`,
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: `Failed to save: ${err.message}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
 // ── List saved connections ───────────────────────────────────────────────────
 server.tool(
   "list_connections",

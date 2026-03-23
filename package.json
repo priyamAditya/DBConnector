@@ -5,7 +5,9 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "setup": "node src/setup.js",
+    "manage": "node src/cli.js"
   },
   "bin": {
     "dbconnector": "src/index.js",

@@ -7,59 +7,66 @@ Once connected, you can ask Claude to query your data, check tables, and more �
 
 ---
 
-## What You Need Before Starting
+## Quick Start (3 commands)
 
-| Requirement | How to get it |
-|---|---|
-| **Node.js** (v18 or newer) | Go to [nodejs.org](https://nodejs.org), download the **LTS** version, and install it. Just click Next through the installer — all defaults are fine. |
-| **Claude Desktop** | Download from [claude.ai/download](https://claude.ai/download) if you don't have it already. |
-| **Your database credentials** | You'll need: host, port, database name, username, and password. Ask your team lead or DevOps if you're unsure. |
+### 1. Install Node.js (if you don't have it)
 
-### How to check if Node.js is installed
+Go to [nodejs.org](https://nodejs.org), download the **LTS** version, install it. All defaults are fine.
 
-Open your terminal (Mac: search "Terminal" in Spotlight; Windows: search "Command Prompt") and type:
-
+To check if it's already installed, open your terminal and type:
 ```
 node --version
 ```
+If you see `v18` or higher, you're good.
 
-If you see something like `v18.17.0` or higher, you're good. If you see an error, install Node.js from the link above.
+> **Where is the terminal?**
+> - **Mac:** Press `Cmd + Space`, type "Terminal", hit Enter
+> - **Windows:** Press `Win`, type "Command Prompt", hit Enter
 
----
-
-## Setup (5 minutes)
-
-### Step 1 — Download DBConnector
-
-Open your terminal and run these two commands one by one:
+### 2. Download and install DBConnector
 
 ```bash
-git clone https://github.com/user/DBConnector.git
+git clone https://github.com/priyamAditya/DBConnector.git
 cd DBConnector
-```
-
-> **Don't have git?** You can also download the project as a ZIP from GitHub and unzip it.
-
-### Step 2 — Install dependencies
-
-Still in your terminal, run:
-
-```bash
 npm install
 ```
 
-Wait for it to finish. You'll see some progress bars — that's normal.
+> **Don't have git?** Download the ZIP from GitHub, unzip it, then open terminal in that folder and run `npm install`.
 
-### Step 3 — Connect it to Claude Desktop
+### 3. Run the setup wizard
+
+```bash
+npm run setup
+```
+
+That's it. The wizard will:
+- Auto-detect your Claude Desktop installation
+- Configure everything for you
+- Optionally let you add your first database connection right away
+
+**After setup, restart Claude Desktop** and you're ready to go.
+
+---
+
+## Setup Options
+
+### Automatic (recommended)
+
+`npm run setup` handles everything. It detects your OS (Mac/Windows/Linux) and updates the Claude config automatically.
+
+### Manual
+
+If you prefer to configure manually, choose "Show me manual instructions" in the setup wizard, or follow these steps:
+
+**For Claude Desktop:**
 
 Open this file in a text editor:
-
 - **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
-> **Can't find the file?** Open Claude Desktop, go to **Settings → Developer → Edit Config**.
+> **Tip:** In Claude Desktop, go to **Settings > Developer > Edit Config** to open it directly.
 
-Add DBConnector to the `mcpServers` section. Replace `/FULL/PATH/TO/DBConnector` with the actual folder path where you downloaded DBConnector:
+Add DBConnector to the config (replace the path with your actual path):
 
 ```json
 {
@@ -72,43 +79,28 @@ Add DBConnector to the `mcpServers` section. Replace `/FULL/PATH/TO/DBConnector`
 }
 ```
 
-**How to find the full path:**
-- **Mac:** Open terminal, `cd` into the DBConnector folder, then type `pwd` — copy what it shows.
-- **Windows:** Open the folder in File Explorer, click the address bar, and copy the path.
+To find the full path: open terminal, `cd` into the DBConnector folder, type `pwd` (Mac/Linux) or look at the address bar in File Explorer (Windows).
 
-**Example (Mac):**
+**For Claude Code (CLI):**
+
+Run `npm run setup` and pick "Claude Code — this project", or add this to `.mcp.json` in your project:
+
 ```json
 {
   "mcpServers": {
     "dbconnector": {
       "command": "node",
-      "args": ["/Users/yourname/Documents/DBConnector/src/index.js"]
+      "args": ["/FULL/PATH/TO/DBConnector/src/index.js"]
     }
   }
 }
 ```
-
-**Example (Windows):**
-```json
-{
-  "mcpServers": {
-    "dbconnector": {
-      "command": "node",
-      "args": ["C:\\Users\\yourname\\Documents\\DBConnector\\src\\index.js"]
-    }
-  }
-}
-```
-
-### Step 4 — Restart Claude Desktop
-
-Quit Claude Desktop completely and open it again. You should see a small 🔌 icon or a tools indicator — that means DBConnector is connected.
 
 ---
 
 ## Using It
 
-Once set up, just talk to Claude in plain English. Here are some examples:
+Once set up, just talk to Claude in plain English.
 
 ### Adding a database connection
 
@@ -116,9 +108,9 @@ Once set up, just talk to Claude in plain English. Here are some examples:
 
 > "Connect to our Redis at cache.example.com, port 6379, password myredispass, call it prod-cache"
 
-> "Add a MySQL connection called analytics — host is mysql.example.com, database reporting, user analyst, password pass456"
+> "Save credentials for our MySQL analytics DB — host mysql.example.com, database reporting, user analyst, password pass456. Don't test it yet."
 
-Claude will test the connection first and only save it if it works.
+Claude will test the connection before saving by default. If you say "save" or "don't test", it stores the credentials without testing — handy when the database isn't reachable from your machine right now.
 
 ### Querying your data
 
@@ -142,15 +134,15 @@ Claude will test the connection first and only save it if it works.
 
 ## Supported Databases & Query Formats
 
-### PostgreSQL & MySQL & ClickHouse
+### PostgreSQL, MySQL & ClickHouse
 
-Use standard **SQL**:
+Standard **SQL**:
 
 ```sql
 SELECT * FROM users WHERE created_at > '2024-01-01' LIMIT 10
 ```
 
-| Setting | PostgreSQL | MySQL | ClickHouse |
+| | PostgreSQL | MySQL | ClickHouse |
 |---|---|---|---|
 | Default port | 5432 | 3306 | 8123 |
 | Query language | SQL | SQL | SQL |
@@ -178,7 +170,7 @@ Queries use a **JSON format** (Claude will handle this for you when you ask in p
 
 ### Redis
 
-Use standard **Redis commands**:
+Standard **Redis commands**:
 
 ```
 GET mykey
@@ -196,14 +188,14 @@ SET greeting "hello world"
 
 ## Connection Details Cheat Sheet
 
-When adding a connection, you'll need these details. If you're not sure about any of them, ask your team lead or whoever manages your databases.
+When adding a connection, you'll need these details. Ask your team lead or DevOps if you're unsure.
 
 | Field | What it is | Example |
 |---|---|---|
 | **name** | A nickname you pick (anything you want) | `prod`, `staging`, `my-analytics` |
 | **dbtype** | Which database software | `postgres`, `mysql`, `clickhouse`, `mongodb`, `redis` |
 | **host** | The server address | `localhost`, `db.example.com`, `10.0.1.50` |
-| **port** | The port number (auto-filled if you don't specify) | `5432`, `3306`, `6379` |
+| **port** | The port number (auto-filled if you skip it) | `5432`, `3306`, `6379` |
 | **database** | The database name (or number for Redis) | `myapp`, `analytics`, `0` |
 | **username** | Your database login | `admin`, `readonly_user` |
 | **password** | Your database password | (keep this secret!) |
@@ -211,15 +203,15 @@ When adding a connection, you'll need these details. If you're not sure about an
 
 ---
 
-## Interactive CLI (Optional)
+## CLI Connection Manager (Optional)
 
-DBConnector also comes with a menu-driven command-line tool for managing connections without Claude:
+Manage connections interactively from the terminal — no Claude needed:
 
 ```bash
-node src/cli.js
+npm run manage
 ```
 
-This gives you a visual menu to add, list, test, and remove connections. Useful for initial setup or debugging.
+This gives you a visual menu to add, list, test, and remove connections.
 
 ---
 
@@ -229,19 +221,20 @@ This gives you a visual menu to add, list, test, and remove connections. Useful 
 
 - **Double-check your credentials** — host, port, username, password, database name.
 - **Is the database running?** Ask your team if the server is up.
-- **Firewall/VPN:** Some databases are only accessible from certain networks. Make sure you're on the right network or VPN.
-- **SSL:** Cloud-hosted databases (like AWS RDS, MongoDB Atlas, Redis Cloud) usually need SSL turned on.
+- **Firewall/VPN:** Some databases are only accessible from certain networks.
+- **SSL:** Cloud databases (AWS RDS, MongoDB Atlas, Redis Cloud) usually need SSL on.
+- **Save without testing:** You can tell Claude "save the credentials without testing" to store them now and test later.
 
 ### Claude doesn't show the DBConnector tools
 
-- Make sure you **restarted Claude Desktop** after editing the config file.
-- Check that the path in `claude_desktop_config.json` is correct and points to the actual `src/index.js` file.
-- Open your terminal and try running `node /FULL/PATH/TO/DBConnector/src/index.js` — if you see errors, something is wrong with the setup.
+- **Restart Claude Desktop** after running `npm run setup`.
+- Run `npm run setup` again to verify the config is correct.
+- Try running `node src/index.js` in your terminal — if you see errors, something went wrong with `npm install`.
 
 ### "npm install" fails
 
-- Make sure Node.js is installed (`node --version` should show v18+).
-- Try deleting the `node_modules` folder and running `npm install` again:
+- Make sure Node.js is installed: `node --version` should show v18+.
+- Try a fresh install:
   ```bash
   rm -rf node_modules
   npm install
@@ -249,42 +242,17 @@ This gives you a visual menu to add, list, test, and remove connections. Useful 
 
 ### "Cannot find module" errors
 
-- You may be running from the wrong folder. Make sure you're inside the DBConnector directory:
-  ```bash
-  cd /path/to/DBConnector
-  node src/index.js
-  ```
+Make sure you're running commands from inside the DBConnector folder:
+```bash
+cd /path/to/DBConnector
+npm run setup
+```
 
 ---
 
 ## Where Are My Connections Stored?
 
-All saved connections are stored locally on your machine at:
-
-```
-~/.dbconnector/connections.sqlite
-```
-
-This is a small file in your home directory. Your credentials never leave your machine — they're only used to connect directly from your computer to the database.
-
----
-
-## Using with Claude Code (CLI)
-
-If you use Claude Code (the terminal version), add this to your project's `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "dbconnector": {
-      "command": "node",
-      "args": ["/FULL/PATH/TO/DBConnector/src/index.js"]
-    }
-  }
-}
-```
-
-Then restart Claude Code. The database tools will be available automatically.
+Locally on your machine at `~/.dbconnector/connections.sqlite`. Your credentials never leave your machine — they're only used to connect directly to the database.
 
 ---
 
@@ -295,7 +263,19 @@ Then restart Claude Code. The database tools will be available automatically.
 | Add a PostgreSQL database | "Add a postgres connection called prod — host db.example.com, database myapp, user admin, password secret" |
 | Add a Redis cache | "Connect to Redis at localhost:6379, call it local-cache" |
 | Add a MySQL database | "Add MySQL connection analytics — host mysql.example.com, database reports, user reader, password pass123" |
+| Save credentials without testing | "Save credentials for staging postgres at db-staging.example.com, don't test it yet" |
 | See all connections | "List my database connections" |
 | Query data | "Show me the last 10 orders from the prod database" |
 | Test a connection | "Is the staging connection working?" |
 | Remove a connection | "Delete the old-prod connection" |
+
+---
+
+## All Commands
+
+| Command | What it does |
+|---|---|
+| `npm install` | Install dependencies (first time only) |
+| `npm run setup` | Configure Claude Desktop or Claude Code |
+| `npm run manage` | Open the interactive connection manager |
+| `npm start` | Start the MCP server (Claude does this automatically) |

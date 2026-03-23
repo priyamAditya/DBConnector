@@ -16,7 +16,7 @@ function getPoolConfig(conn) {
   };
 }
 
-export async function testPgConnection(conn) {
+export async function testConnection(conn) {
   const client = new pg.Client(getPoolConfig(conn));
   try {
     await client.connect();
@@ -40,7 +40,7 @@ export async function runQuery(conn, sql) {
   return {
     command: result.command,
     rowCount: result.rowCount,
-    fields: result.fields?.map((f) => f.name) ?? [],
+    columns: result.fields?.map((f) => f.name) ?? [],
     rows: result.rows ?? [],
   };
 }
@@ -52,3 +52,6 @@ export async function closePool(name) {
     pools.delete(name);
   }
 }
+
+export const defaultPort = 5432;
+export const label = "PostgreSQL";

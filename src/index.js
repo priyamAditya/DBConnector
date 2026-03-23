@@ -9,39 +9,47 @@ import {
   listConnections,
   removeConnection,
 } from "./db.js";
-import { testPgConnection, runQuery, closePool } from "./pg.js";
+import { getDriver, DB_TYPES, DB_LABELS, DEFAULT_PORTS } from "./drivers/index.js";
 
 const server = new McpServer(
-  { name: "dbconnector", version: "1.0.0" },
+  { name: "dbconnector", version: "2.0.0" },
   {
     capabilities: { tools: {} },
     instructions:
-      "PostgreSQL database connector. Add a named connection first with add_connection, then run queries with query.",
+      "Multi-database connector. Supports PostgreSQL, MySQL, ClickHouse, MongoDB, and Redis. Add a named connection first with add_connection, then run queries with query.",
   }
+);
+
+const dbtypeEnum = z.enum(DB_TYPES).describe(
+  "Database type: postgres, mysql, clickhouse, mongodb, or redis"
 );
 
 // ── Add / update a named connection ──────────────────────────────────────────
 server.tool(
   "add_connection",
-  "Save a new named PostgreSQL connection. Tests it before saving. Returns the server version on success.",
+  "Save a new named database connection. Tests it before saving. Returns the server version on success.",
   {
     name: z.string().describe("Unique name for this connection (e.g. 'prod', 'staging')"),
-    host: z.string().describe("PostgreSQL host"),
-    port: z.number().default(5432).describe("PostgreSQL port"),
-    database: z.string().describe("Database name"),
+    dbtype: dbtypeEnum,
+    host: z.string().describe("Database host"),
+    port: z.number().optional().describe("Port (auto-detected from db type if omitted)"),
+    database: z.string().describe("Database name (for Redis, use the DB number like '0')"),
     username: z.string().describe("Database user"),
-    password: z.string().describe("Database password"),
+    password: z.string().default("").describe("Database password"),
     ssl: z.boolean().default(false).describe("Use SSL connection"),
   },
   async (args) => {
+    const port = args.port ?? DEFAULT_PORTS[args.dbtype];
+    const conn = { ...args, port };
     try {
-      const result = await testPgConnection(args);
-      saveConnection(args);
+      const driver = getDriver(args.dbtype);
+      const result = await driver.testConnection(conn);
+      saveConnection(conn);
       return {
         content: [
           {
             type: "text",
-            text: `Connection "${args.name}" saved successfully.\nServer: ${result.version}`,
+            text: `Connection "${args.name}" (${DB_LABELS[args.dbtype]}) saved successfully.\nServer: ${result.version}`,
           },
         ],
       };
@@ -62,7 +70,7 @@ server.tool(
 // ── List saved connections ───────────────────────────────────────────────────
 server.tool(
   "list_connections",
-  "List all saved PostgreSQL connections (passwords are hidden).",
+  "List all saved database connections (passwords are hidden).",
   {},
   async () => {
     const conns = listConnections();
@@ -75,6 +83,7 @@ server.tool(
     }
     const table = conns.map((c) => ({
       name: c.name,
+      type: c.dbtype ?? "postgres",
       host: c.host,
       port: c.port,
       database: c.database,
@@ -104,10 +113,11 @@ server.tool(
       };
     }
     try {
-      const result = await testPgConnection(conn);
+      const driver = getDriver(conn.dbtype ?? "postgres");
+      const result = await driver.testConnection(conn);
       return {
         content: [
-          { type: "text", text: `Connection "${name}" is healthy.\nServer: ${result.version}` },
+          { type: "text", text: `Connection "${name}" (${DB_LABELS[conn.dbtype ?? "postgres"]}) is healthy.\nServer: ${result.version}` },
         ],
       };
     } catch (err) {
@@ -119,13 +129,13 @@ server.tool(
   }
 );
 
-// ── Execute a SQL query ──────────────────────────────────────────────────────
+// ── Execute a query ──────────────────────────────────────────────────────────
 server.tool(
   "query",
-  "Execute a SQL query on a named connection. The connection must be saved first via add_connection.",
+  "Execute a query on a named connection. For SQL databases use SQL. For MongoDB use JSON (see docs). For Redis use native commands like 'GET key'.",
   {
     connection: z.string().describe("Name of the saved connection to use"),
-    sql: z.string().describe("SQL query to execute"),
+    sql: z.string().describe("Query to execute (SQL for relational DBs, JSON for MongoDB, Redis commands for Redis)"),
   },
   async ({ connection, sql }) => {
     const conn = getConnection(connection);
@@ -141,11 +151,12 @@ server.tool(
       };
     }
     try {
-      const result = await runQuery(conn, sql);
+      const driver = getDriver(conn.dbtype ?? "postgres");
+      const result = await driver.runQuery(conn, sql);
       const output = {
         command: result.command,
         rowCount: result.rowCount,
-        columns: result.fields,
+        columns: result.columns,
         rows: result.rows,
       };
       return {
@@ -168,7 +179,11 @@ server.tool(
     name: z.string().describe("Connection name to remove"),
   },
   async ({ name }) => {
-    await closePool(name);
+    const conn = getConnection(name);
+    if (conn) {
+      const driver = getDriver(conn.dbtype ?? "postgres");
+      await driver.closePool(name);
+    }
     const removed = removeConnection(name);
     return {
       content: [

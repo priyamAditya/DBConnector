@@ -4,16 +4,30 @@ import inquirer from "inquirer";
 import chalk from "chalk";
 import ora from "ora";
 import { saveConnection, getConnection, listConnections, removeConnection } from "./db.js";
-import { testPgConnection } from "./pg.js";
+import { getDriver, DB_TYPES, DB_LABELS, DEFAULT_PORTS } from "./drivers/index.js";
 
 const banner = `
-${chalk.bold.cyan("╔══════════════════════════════════════╗")}
-${chalk.bold.cyan("║")}   ${chalk.bold.white("DBConnector")} ${chalk.dim("— MCP PostgreSQL Manager")} ${chalk.bold.cyan("║")}
-${chalk.bold.cyan("╚══════════════════════════════════════╝")}
+${chalk.bold.cyan("╔══════════════════════════════════════════╗")}
+${chalk.bold.cyan("║")}   ${chalk.bold.white("DBConnector")} ${chalk.dim("— Multi-DB MCP Manager")}    ${chalk.bold.cyan("║")}
+${chalk.bold.cyan("╚══════════════════════════════════════════╝")}
 `;
 
+const DB_CHOICES = DB_TYPES.map((t) => ({
+  name: `${DB_LABELS[t]} (port ${DEFAULT_PORTS[t]})`,
+  value: t,
+}));
+
 async function promptConnection() {
-  console.log(chalk.dim("\nEnter PostgreSQL connection details:\n"));
+  console.log(chalk.dim("\nEnter database connection details:\n"));
+
+  const { dbtype } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "dbtype",
+      message: "Database type:",
+      choices: DB_CHOICES,
+    },
+  ]);
 
   const answers = await inquirer.prompt([
     {
@@ -32,18 +46,20 @@ async function promptConnection() {
       type: "number",
       name: "port",
       message: "Port:",
-      default: 5432,
+      default: DEFAULT_PORTS[dbtype],
     },
     {
       type: "input",
       name: "database",
-      message: "Database:",
-      validate: (v) => (v.trim() ? true : "Database name is required"),
+      message: dbtype === "redis" ? "Database number (0-15):" : "Database:",
+      default: dbtype === "redis" ? "0" : undefined,
+      validate: (v) => (v.toString().trim() ? true : "Database is required"),
     },
     {
       type: "input",
       name: "username",
       message: "Username:",
+      default: dbtype === "redis" ? "default" : undefined,
       validate: (v) => (v.trim() ? true : "Username is required"),
     },
     {
@@ -60,7 +76,7 @@ async function promptConnection() {
     },
   ]);
 
-  return answers;
+  return { ...answers, dbtype };
 }
 
 async function addConnection() {
@@ -84,12 +100,13 @@ async function addConnection() {
 
   const spinner = ora("Testing connection...").start();
   try {
-    const result = await testPgConnection(conn);
+    const driver = getDriver(conn.dbtype);
+    const result = await driver.testConnection(conn);
     spinner.succeed(chalk.green("Connected!"));
     console.log(chalk.dim(`  Server: ${result.version}`));
 
     saveConnection(conn);
-    console.log(chalk.green(`\n✓ Connection "${conn.name}" saved.\n`));
+    console.log(chalk.green(`\n✓ Connection "${conn.name}" (${DB_LABELS[conn.dbtype]}) saved.\n`));
   } catch (err) {
     spinner.fail(chalk.red("Connection failed"));
     console.log(chalk.red(`  ${err.message}\n`));
@@ -110,8 +127,9 @@ async function showConnections() {
   }
   console.log(chalk.bold("\n  Saved connections:\n"));
   for (const c of conns) {
+    const typeLabel = DB_LABELS[c.dbtype ?? "postgres"] ?? c.dbtype;
     console.log(
-      `  ${chalk.cyan(c.name.padEnd(15))} ${chalk.dim(`${c.username}@${c.host}:${c.port}/${c.database}`)}${c.ssl ? chalk.yellow(" [SSL]") : ""}`
+      `  ${chalk.cyan(c.name.padEnd(15))} ${chalk.magenta(`[${typeLabel}]`.padEnd(14))} ${chalk.dim(`${c.username}@${c.host}:${c.port}/${c.database}`)}${c.ssl ? chalk.yellow(" [SSL]") : ""}`
     );
   }
   console.log();
@@ -130,7 +148,7 @@ async function deleteConnection() {
       name: "name",
       message: "Select connection to remove:",
       choices: conns.map((c) => ({
-        name: `${c.name} (${c.host}:${c.port}/${c.database})`,
+        name: `${c.name} [${DB_LABELS[c.dbtype ?? "postgres"]}] (${c.host}:${c.port}/${c.database})`,
         value: c.name,
       })),
     },
@@ -159,7 +177,7 @@ async function testExistingConnection() {
       name: "name",
       message: "Select connection to test:",
       choices: conns.map((c) => ({
-        name: `${c.name} (${c.host}:${c.port}/${c.database})`,
+        name: `${c.name} [${DB_LABELS[c.dbtype ?? "postgres"]}] (${c.host}:${c.port}/${c.database})`,
         value: c.name,
       })),
     },
@@ -168,7 +186,8 @@ async function testExistingConnection() {
   const conn = getConnection(name);
   const spinner = ora(`Testing "${name}"...`).start();
   try {
-    const result = await testPgConnection(conn);
+    const driver = getDriver(conn.dbtype ?? "postgres");
+    const result = await driver.testConnection(conn);
     spinner.succeed(chalk.green(`"${name}" is healthy`));
     console.log(chalk.dim(`  Server: ${result.version}\n`));
   } catch (err) {
